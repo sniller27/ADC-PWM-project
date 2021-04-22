@@ -26,13 +26,18 @@
 // Variables for UART
 #define MAX 11
 char buffer[MAX] = {0};
-
+float val1;
 // void init(){
 // 	PORTK|=0xFF;
 // 	DDRG |=0b00100000;  //D4 as output
 // 	
 // }
 
+ISR(ADC_vect)
+{
+	// return 10 bit sampleværdi
+	val1 = ADCL+(ADCH<<8);
+}
 
 
 void init_adc(){
@@ -85,7 +90,7 @@ void format_frac(int sample){
 }
 
 /*returns a 10 bit sample from a chosen channel*/
-unsigned int get_sample(char channel){
+void get_sample(char channel){
 
 	// ADC Multiplexer Selection Register
 	ADMUX=channel;
@@ -100,11 +105,11 @@ unsigned int get_sample(char channel){
 	// ADC Control and Status Register A
 	ADCSRA|=(1<<ADSC); // start ADC-conversion (her start adc'en sin sampling)
 	
-	// polling (via ADC Interrupt Flag)
-	while(!(ADCSRA&(1<<ADIF))); 
-
-	// return 10 bit sampleværdi
-	return(ADCL+(ADCH<<8));
+// 	// polling (via ADC Interrupt Flag)
+// 	while(!(ADCSRA&(1<<ADIF))); 
+// 
+// 	// return 10 bit sampleværdi
+// 	return(ADCL+(ADCH<<8));
 
 }
 
@@ -120,8 +125,8 @@ unsigned int get_sample(char channel){
 int main(void)
 {  
 	// aktiver ADC-interrupt
-	//ADCSRA|=(1<<ADIE);
-	//sei();
+	ADCSRA|=(1<<ADIE);
+	sei();
 	
 	//ved auto-trigger =>k onfig reg b ... lyder som om vi skal bruge auto-trigger?
 	
@@ -139,7 +144,7 @@ int main(void)
    clear_display();   //use this before writing you own text
    
    //DDRF=(1<<PF0);  // sæt som input
-   float val1;
+   
    float val2;
    int val3;
    int val4;
@@ -153,7 +158,8 @@ int main(void)
   while (1)
   {      
 	 
-	 val1 = get_sample(0); // input fra ADC
+	 get_sample(0);
+	 //val1 = get_sample(0); // input fra ADC
 	 //val2 = to_duty_cycle(val1,1024); // duty cycle
 	 val2 = (val1/1023)*100; // duty cycle
 	 

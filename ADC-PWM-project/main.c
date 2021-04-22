@@ -35,8 +35,6 @@ char buffer[MAX] = {0};
 
 
 
-
-
 void init_adc(){
 	
 	// ADC Control and Status Register A

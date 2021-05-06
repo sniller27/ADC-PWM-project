@@ -115,7 +115,9 @@ void get_sample(char channel){
 
 
 
-
+float calc_OCNA_limit(int duty, int top_val){
+	return duty*((float)top_val/(float)100);
+}
 
 
 
@@ -128,11 +130,13 @@ int main(void)
 	ADCSRA|=(1<<ADIE);
 	sei();
 	
-	//ved auto-trigger =>k onfig reg b ... lyder som om vi skal bruge auto-trigger?
+	//ved auto-trigger => konfig reg b ... lyder som om vi skal bruge auto-trigger?
 	
-	init_adc(); // what is this for?
+	init_adc(); // init ADC-registre
 	//get_sample(0);
 	uart0_init(MYUBRRF); // UART0 init
+	
+	init_phase_correct();
 	
   _i2c_address = 0X78; // write address for i2c interface
   
@@ -155,10 +159,19 @@ int main(void)
    unsigned char newval1;
    unsigned char newval2;
    
+   int duty_val1 = 0;
+   int duty_val2 = 0;
+   int top_val = 1023;
+   char val_ocrna_string[16];
+   int val_ocrna1;
+   int val_ocrna2;
+   float val_ocrna_f = 0;
+   
   while (1)
   {      
-	 
-	 get_sample(0);
+	  
+	  
+	 get_sample(0); // skal den kaldes her?
 	 //val1 = get_sample(0); // input fra ADC
 	 //val2 = to_duty_cycle(val1,1024); // duty cycle
 	 val2 = (val1/1023)*100; // duty cycle
@@ -176,6 +189,26 @@ int main(void)
 	 
 	 sendStrXY(val3a,0,0); //line 0  -print the line of text
 	 sendStrXY(val3b,1,1); //line 0  -print the line of text
+	 
+	 
+	 // received UART values set OCRNA-limits
+	 duty_val1 = 80;
+	 duty_val2 = 20;
+	 
+	 val_ocrna1 = calc_OCNA_limit(duty_val1,top_val); // 818
+	 val_ocrna2 = calc_OCNA_limit(duty_val2,top_val); // 204
+	 
+	 // 	  if (val_ocrna1<adc_val)
+	 // 	  {
+	 // 		  adc_val = val_ocrna1;
+	 // 	  }
+	 //
+	 // 	  if (val_ocrna2>adc_val)
+	 // 	  {
+	 // 		  adc_val = val_ocrna2;
+	 // 	  }
+	 sprintf(val_ocrna_string, "%i", val_ocrna1);
+	 sendStrXY(val_ocrna_string,2,2);
 
   }
 

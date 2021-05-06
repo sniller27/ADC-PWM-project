@@ -18,7 +18,7 @@ enum state {init,listen,fastPWM,phaseCorrectPWM,ph_freq_corr,phaseCorrectPWMalt}
 void init_fastPWM()
 {
 	DDRB |= (1<<DDB7);// configure OC0A pin for output
-	TCCR0A =(1<<COM0A1)|(1<<WGM01)|(1<<WGM00);  // 0x83; select fast PWM, non-inverting mode
+	TCCR0A =(1<<COM0A1)|(1<<WGM01)|(1<<WGM00);  // 0x83; --- vælger mode: fast PWM, non-inverting mode
 	TCCR0B= (1<<CS01); // and set clock pre-scaler to 8
 	TCNT0= 0; // force TCNT0 to count up from 0
 	OCR0A= 154; // set duty cycle to 60%"=(154/256)*100
@@ -27,9 +27,9 @@ void init_fastPWM()
 /*phase correct mode updates OCR0A at bottom*/
 void init_phase_correct()
 {
-	TCCR0A|=(1<<COM0A1)|(1<<WGM00);	//Clear OC0A on Compare Match when up-counting. Set OC0A on Compare Match when down-counting
-	TCCR0B =(1<<CS01);   //prescalling by 8 ()
-	OCR0A =102;  //40 duty cycle re top=255 (OCR0A: ved CTC bruges det til delay og ved PWM noget andet... via excel dokument 2)
+	TCCR0A|=(1<<COM0A1)|(1<<WGM00);	//Clear OC0A on Compare Match when up-counting. Set OC0A on Compare Match when down-counting (s.130 - 10)(s.131 - 001 => TOP=0xFF=255)
+	TCCR0B =(1<<CS01);   //prescalling by 8 (s.131 - 010)
+	OCR0A =102;  //40 duty cycle re top=255 (OCR0A: ved CTC bruges det til delay og ved PWM noget andet... via excel dokument 2) (værdi her er åbenbart ikke så vigtig...)
 	TCNT0= 0;
 	DDRB |= (1<<DDB7);// configure OC0A pin for output
 }

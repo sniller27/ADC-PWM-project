@@ -40,11 +40,27 @@ ISR(ADC_vect)
 }
 
 
-void init_adc(){
+void init_adc(unsigned char channel){
 	
 	// ADC Control and Status Register A
 	ADCSRA|=(1<<ADPS0)|(1<<ADPS1)|(1<<ADPS2); // pre-scaler selection (128) ... dvs: (intern clock: 16.000.000/128 = 125.000 Hz) (mellem 100 KHz og 200 KHz)
 	ADCSRA|=(1<<ADEN); // enable ADC
+	
+	// ADC Multiplexer Selection Register
+	ADMUX=channel;
+	ADMUX|=(1<<REFS0); // reference spænding: AVCC with external capacitor at AREF pin? s.289 (5V)
+	// ADLER bit sættes ved 8-bit (ikke 10-bit)
+	
+	// Digital Input Disable Registers
+	DIDR0=(1<<channel);
+	DIDR0=~DIDR0; // invterer bit masker med hinanden
+	DIDR1=0xff;
+	
+	// ADC Control and Status Register A
+	ADCSRA|=(1<<ADSC); // start ADC-conversion (her start adc'en sin sampling)
+	
+	// aktiver ADC-interrupt
+	ADCSRA|=(1<<ADIE);
 
 }
 
@@ -92,18 +108,18 @@ void format_frac(int sample){
 /*returns a 10 bit sample from a chosen channel*/
 void get_sample(char channel){
 
-	// ADC Multiplexer Selection Register
-	ADMUX=channel;
-	ADMUX|=(1<<REFS0); // reference spænding: AVCC with external capacitor at AREF pin? s.289 (5V)
-	// ADLER bit sættes ved 8-bit (ikke 10-bit)
-	
-	// Digital Input Disable Registers
-	DIDR0=(1<<channel);
-	DIDR0=~DIDR0; // invterer bit masker med hinanden
-	DIDR1=0xff;
-	
-	// ADC Control and Status Register A
-	ADCSRA|=(1<<ADSC); // start ADC-conversion (her start adc'en sin sampling)
+// 	// ADC Multiplexer Selection Register
+// 	ADMUX=channel;
+// 	ADMUX|=(1<<REFS0); // reference spænding: AVCC with external capacitor at AREF pin? s.289 (5V)
+// 	// ADLER bit sættes ved 8-bit (ikke 10-bit)
+// 	
+// 	// Digital Input Disable Registers
+// 	DIDR0=(1<<channel);
+// 	DIDR0=~DIDR0; // invterer bit masker med hinanden
+// 	DIDR1=0xff;
+// 	
+// 	// ADC Control and Status Register A
+// 	ADCSRA|=(1<<ADSC); // start ADC-conversion (her start adc'en sin sampling)
 	
 // 	// polling (via ADC Interrupt Flag)
 // 	while(!(ADCSRA&(1<<ADIF))); 
@@ -126,13 +142,11 @@ float calc_OCNA_limit(int duty, int top_val){
 
 int main(void)
 {  
-	// aktiver ADC-interrupt
-	ADCSRA|=(1<<ADIE);
 	sei();
 	
 	//ved auto-trigger => konfig reg b ... lyder som om vi skal bruge auto-trigger?
 	
-	init_adc(); // init ADC-registre
+	init_adc(0); // init ADC-registre
 	//get_sample(0);
 	uart0_init(MYUBRRF); // UART0 init
 	
@@ -159,6 +173,9 @@ int main(void)
    unsigned char newval1;
    unsigned char newval2;
    
+   char PWM_val1;
+   char PWM_val2;
+   
    int duty_val1 = 0;
    int duty_val2 = 0;
    int top_val = 1023;
@@ -170,8 +187,8 @@ int main(void)
   while (1)
   {      
 	  
-	  
-	 get_sample(0); // skal den kaldes her?
+
+	
 	 //val1 = get_sample(0); // input fra ADC
 	 //val2 = to_duty_cycle(val1,1024); // duty cycle
 	 val2 = (val1/1023)*100; // duty cycle
@@ -179,6 +196,10 @@ int main(void)
 	 // casting float values to integers
 	 val3 = val1;
 	 val4 = val2;
+	 
+	 PWM_val1 = (val3>>2);
+	 OCR0A = PWM_val1;
+	 	 
 	 
 	 //putsUSART0(buffer);//return the buffer (string sent to terminal)
 	 

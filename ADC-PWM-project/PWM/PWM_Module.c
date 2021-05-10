@@ -20,17 +20,17 @@ void init_fastPWM()
 	DDRB |= (1<<DDB7);// configure OC0A pin for output
 	TCCR0A =(1<<COM0A1)|(1<<WGM01)|(1<<WGM00);  // 0x83; --- vælger mode: fast PWM, non-inverting mode
 	TCCR0B= (1<<CS01); // and set clock pre-scaler to 8
-	TCNT0= 0; // force TCNT0 to count up from 0
+	TCNT0= 0; // force TCNT0 to count up from 0 (clearer tæller for ordens skyld)
 	OCR0A= 154; // set duty cycle to 60%"=(154/256)*100
 }
 
 /*phase correct mode updates OCR0A at bottom*/
 void init_phase_correct()
 {
-	TCCR0A|=(1<<COM0A1)|(1<<WGM00);	//Clear OC0A on Compare Match when up-counting. Set OC0A on Compare Match when down-counting (s.130 - 10)(s.131 - 001 => TOP=0xFF=255)
-	TCCR0B =(1<<CS01);   //prescalling by 8 (s.131 - 010)
-	OCR0A =102;  //40 duty cycle re top=255 (OCR0A: ved CTC bruges det til delay og ved PWM noget andet... via excel dokument 2) (værdi her er åbenbart ikke så vigtig...)
-	TCNT0= 0;
+	TCCR0A|=(1<<COM0A1)|(1<<WGM00);	// WGM00[mode: phase correct] + COM0A1[Clear OC0A on Compare Match when up-counting. Set OC0A on Compare Match when down-counting (s.130 - 10)(s.131 - 001 => TOP=0xFF=255)]
+	TCCR0B =(1<<CS01);   //prescaling by 8 (s.133 - 010)
+	OCR0A =102;  // 40 duty cycle re top=255 (OCR0A: ved CTC bruges det til delay og ved PWM noget andet... via excel dokument 2) (værdi her er åbenbart ikke så vigtig...)
+	TCNT0= 0; // force TCNT0 to count up from 0 (clearer tæller for ordens skyld)
 	DDRB |= (1<<DDB7);// configure OC0A pin for output
 }
 
@@ -41,8 +41,8 @@ void init_ph_frPWM()
 {
 	DDRB|=(1<<PB5);   //pin 11
 	TCCR1A|=(1<<COM1A1);	//Clear OC1A on Compare Match when up-counting. Set OC1A on Compare Match when down-counting
-	TCCR1B =(1<<CS11)|(1<<WGM13);   //prescalling by 8
-	ICR1= 204;  //top value then OC1A pin can be used   // 8bit top value=204
+	TCCR1B =(1<<CS11)|(1<<WGM13);   //prescaling by 8
+	ICR1= 204;  // for fase og frekvens correct kan top-værdi sættes her! ... top value then OC1A pin can be used   // 8bit top value=204
 	OCR1A =102;  //50 duty cycle re top value=204
 }
 

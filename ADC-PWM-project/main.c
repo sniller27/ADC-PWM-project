@@ -24,131 +24,64 @@
 #define MYUBRRH F_CPU/16/BAUD-1 // half duplex
 
 // Variables for UART
-#define MAX 11
+#define MAX 8
 char buffer[MAX] = {0};
+volatile char flag_ub = 0;
 float val1;
-// void init(){
-// 	PORTK|=0xFF;
-// 	DDRG |=0b00100000;  //D4 as output
-// 	
-// }
 
+char message[] = "\n Write duty cycle in ii:ii (VALUES MIN:MAX) \n";
+
+// ADC interrupt (når ADC konvertering er færdig)
 ISR(ADC_vect)
 {
-	// return 10 bit sampleværdi
+	// return 10 bit sampleværdi (henter digitale værdi fra ADC)
 	val1 = ADCL+(ADCH<<8);
 }
 
+// receive complete interrupt service routine (UART receive interrupt) (når der er sendt fra PC-terminal)
+ISR(USART0_RX_vect){
 
-void init_adc(unsigned char channel){
-	
-	// ADC Control and Status Register A
-	ADCSRA|=(1<<ADPS0)|(1<<ADPS1)|(1<<ADPS2); // pre-scaler selection (128) ... dvs: (intern clock: 16.000.000/128 = 125.000 Hz) (mellem 100 KHz og 200 KHz)
-	ADCSRA|=(1<<ADEN); // enable ADC
-	
-	// ADC Multiplexer Selection Register
-	ADMUX=channel;
-	ADMUX|=(1<<REFS0); // reference spænding: AVCC with external capacitor at AREF pin? s.289 (5V)
-	// ADLER bit sættes ved 8-bit (ikke 10-bit)
-	
-	// Digital Input Disable Registers
-	DIDR0=(1<<channel);
-	DIDR0=~DIDR0; // invterer bit masker med hinanden
-	DIDR1=0xff;
-	
-	// ADC Control and Status Register A
-	ADCSRA|=(1<<ADSC); // start ADC-conversion (her start adc'en sin sampling)
-	
-	// aktiver ADC-interrupt
-	ADCSRA|=(1<<ADIE);
+	static int i=0;
+	buffer[i++]=UDR0; // gemmer UART data i buffer-variabel
 
+	if(i==MAX-1){
+		flag_ub=1;
+		i=0;
+	}
+	
 }
 
-void enable_auto_trigger_mode(){
-	
-	// ADCSRA
-	ADCSRA|=(1<<ADATE); // enable auto-trigger mode
-	
-	// ADCSRB (hvilken mode? en af de 3 sidste?) (timer overflow s.294)
-	ADCSRB|=(1<<ADTS2)|(1<<ADTS1);
-
+// compare match interrupt service routine til timer (timer1 overflow interrupt?)
+ISR(TIMER1_COMPA_vect)
+{
+	ADCSRA|=(1<<ADSC);
 }
 
-int to_duty_cycle(int val, int ADC_MAX){
-	return (100*val)/ADC_MAX;
+void enableReceive_Itr(){
+	UCSR0B|=(1<<RXCIE0); // enable receive complete interrupt
 }
 
-unsigned char to_duty_cycle2(unsigned char temp){
-	return (char)((100*temp)/1024);
+void init_timer1(){
+	TCCR1B |=(1<<WGM12); // timer mode: CTC
+	TCCR1B |=(1<<CS11)|((1<<CS10)); // timer pre-scaling: 64
+	OCR1A = 249; // udregnet (sætter værdi i sammenligningsregister. via excel dokument 1)
+	TIMSK1 |=(1<<OCIE1A); // interrupt mode: Output Compare A Match Interrupt Enable
 }
-
 
 /*format a 3 digits after the comma for a sample of 10 bits*/
-void format_frac(int sample){
-// 	voltage=(10*sample/2046); //integer as 5 is multiplyed by 2 then the reference maks also 2*1023
-// 	buffer[0]=voltage+0x30;//ascii for the integer
-// 	frac=(10*sample)%2046;
-// 	buffer[1]='.';
-// 	buffer[2]=10*frac/2046+0x30;
-// 	frac=(10*frac)%2046;
-// 	buffer[3]=(10*frac)/2046+0x30;
-// 	frac=(10*frac)%2046;
-// 	if(frac>=1023)
-// 	buffer[3]++;
-// 	if(buffer[3]==(0x30+10)){
-// 		buffer[3]=0x30;
-// 		buffer[2]++;
-// 		if(buffer[2]==(0x30+10)){
-// 			buffer[2]=0x30;
-// 			buffer[0]++;
-// 		}
-// 	}
-}
-
 /*returns a 10 bit sample from a chosen channel*/
-void get_sample(char channel){
-
-// 	// ADC Multiplexer Selection Register
-// 	ADMUX=channel;
-// 	ADMUX|=(1<<REFS0); // reference spænding: AVCC with external capacitor at AREF pin? s.289 (5V)
-// 	// ADLER bit sættes ved 8-bit (ikke 10-bit)
-// 	
-// 	// Digital Input Disable Registers
-// 	DIDR0=(1<<channel);
-// 	DIDR0=~DIDR0; // invterer bit masker med hinanden
-// 	DIDR1=0xff;
-// 	
-// 	// ADC Control and Status Register A
-// 	ADCSRA|=(1<<ADSC); // start ADC-conversion (her start adc'en sin sampling)
-	
-// 	// polling (via ADC Interrupt Flag)
-// 	while(!(ADCSRA&(1<<ADIF))); 
-// 
-// 	// return 10 bit sampleværdi
-// 	return(ADCL+(ADCH<<8));
-
-}
-
-
-
-float calc_OCNA_limit(int duty, int top_val){
-	return duty*((float)top_val/(float)100);
-}
-
-
-
-
-
-
 int main(void)
 {  
-	sei();
+	sei(); // enable global interrupt
+	// ved auto-trigger => konfig reg b ... lyder som om vi skal bruge auto-trigger?
 	
-	//ved auto-trigger => konfig reg b ... lyder som om vi skal bruge auto-trigger?
+	init_timer1(); // init timer for ADC
 	
 	init_adc(0); // init ADC-registre
-	//get_sample(0);
+	
 	uart0_init(MYUBRRF); // UART0 init
+	enableReceive_Itr(); // init interrupt RX interrupt (receive interrupt)
+	putsUSART0(message); // start message
 	
 	init_phase_correct();
 	
@@ -156,80 +89,80 @@ int main(void)
   
   I2C_Init();  //initialize i2c interface to display
   InitializeDisplay(); //initialize  display
-  
    print_fonts();  //for test and then exclude the  clear_display(); call
-   char text[]="en tekst string"; //string declared before use it in sendStrXY - 15 chars long incl spaces
    clear_display();   //use this before writing you own text
-   
-   //DDRF=(1<<PF0);  // sæt som input
-   
-   float val2;
+   int ADC_DUTY_CYCLE;
    int val3;
-   int val4;
-   
    char val3a[16];
-   char val3b[16];
-   
-   unsigned char newval1;
-   unsigned char newval2;
-   
+   char val3b[16];  
    char PWM_val1;
-   char PWM_val2;
+   int duty_val1 = 80;
+   int duty_val2 = 20;
+   int top_val = 1023; // top val er 1023 fordi val1 er 10-bits = 2^10 = 1023
+   int OCR_CONVERT1 = 0;
+   int OCR_CONVERT2 = 0;
    
-   int duty_val1 = 0;
-   int duty_val2 = 0;
-   int top_val = 1023;
-   char val_ocrna_string[16];
-   int val_ocrna1;
-   int val_ocrna2;
-   float val_ocrna_f = 0;
+   int lim1;
+   int lim2;
+   
    
   while (1)
   {      
-	  
-
-	
-	 //val1 = get_sample(0); // input fra ADC
-	 //val2 = to_duty_cycle(val1,1024); // duty cycle
-	 val2 = (val1/1023)*100; // duty cycle
+	 //init_adc(0); // init ADC-registre
+	 //ADCSRA|=(1<<ADSC);
 	 
-	 // casting float values to integers
-	 val3 = val1;
-	 val4 = val2;
-	 
-	 PWM_val1 = (val3>>2);
-	 OCR0A = PWM_val1;
+	 	 val3 = val1;
 	 	 
+		 // beregner ADC duty cycle med værdi fra ADC (spænding på indgang? ISR)
+		 // (top val er 2023 fordi val1 er 10-bits = 2^10 = 1023 ... 10-bits ADC!!!)
+		 ADC_DUTY_CYCLE = (val1/top_val)*100; // beregner duty cycle ud fra målte ADC spænding 'val1'
+	 	 
+	 	 // received UART values set OCRNA-limits (duty cycles fra ADC sammenlignes med de grænser sent fra PC-terminal!)
+		 if (flag_ub == 1)
+		 {
+			 lim2 = ((buffer[1]-0x30)+((buffer[0]-0x30)*10));
+			 lim1 = ((buffer[4]-0x30)+((buffer[3]-0x30)*10));
+
+//			 TEST OF VALUES ON OLED			 
+// 			 sprintf(val3a, "%i", lim1);
+// 			 sendStrXY(val3a,0,0); //line 0  -print the line of text
+// 			 
+// 			 sprintf(val3b, "%i", lim2);
+// 			 sendStrXY(val3b,1,1); //line 0  -print the line of text
+			 
+			 duty_val1 = lim1;
+			 duty_val2 = lim2;
+			 
+			 flag_ub = 0;
+		 }
+		 
+	 	 OCR_CONVERT1 = (duty_val1*256)/100; // ligning fra excel hvor OCR er isoleret
+		 OCR_CONVERT2 = (duty_val2*256)/100; // ligning fra excel hvor OCR er isoleret
+	 	 if (ADC_DUTY_CYCLE>duty_val1)
+	 	 {
+	 		 PWM_val1= OCR_CONVERT1;
+	 	 }
+	     else if (ADC_DUTY_CYCLE<duty_val2)
+	 	 {
+	 		 PWM_val1= OCR_CONVERT2;
+	 	 }
+		 else
+		 {
+			 PWM_val1 = (val3>>2);
+		 }
 	 
-	 //putsUSART0(buffer);//return the buffer (string sent to terminal)
+	 // casting float values to integers ... OCR0A val afgøres af indtastede duty_val
+	 // pwm rate/styrke opdateres, som kan ses på LED?
+	 OCR0A = PWM_val1;
 	 
-	 sprintf(val3a, "%i", val3);
-	 sprintf(val3b, "%i", val4);
 	 
-	 //sendCharXY('a',1,2);  //one char  - X is line number - from 0 -7 and Y number position of the char an the line - 15 chars 
-	 
+	 sprintf(val3a, "%i", PWM_val1);
+	 sprintf(val3b, "%i", ADC_DUTY_CYCLE);
+	 //sprintf(val3b, "%i", val1);
+ 
 	 sendStrXY(val3a,0,0); //line 0  -print the line of text
 	 sendStrXY(val3b,1,1); //line 0  -print the line of text
-	 
-	 
-	 // received UART values set OCRNA-limits
-	 duty_val1 = 80;
-	 duty_val2 = 20;
-	 
-	 val_ocrna1 = calc_OCNA_limit(duty_val1,top_val); // 818
-	 val_ocrna2 = calc_OCNA_limit(duty_val2,top_val); // 204
-	 
-	 // 	  if (val_ocrna1<adc_val)
-	 // 	  {
-	 // 		  adc_val = val_ocrna1;
-	 // 	  }
-	 //
-	 // 	  if (val_ocrna2>adc_val)
-	 // 	  {
-	 // 		  adc_val = val_ocrna2;
-	 // 	  }
-	 sprintf(val_ocrna_string, "%i", val_ocrna1);
-	 sendStrXY(val_ocrna_string,2,2);
+
 
   }
 

@@ -56,8 +56,8 @@ Common symbol       size              file
 
 read_addres         0x1               I2C.o
 state               0x1               PWM/PWM_Module.o
+ADC_val             0x4               main.o
 write_address       0x1               I2C.o
-val1                0x4               main.o
 
 Discarded input sections
 
@@ -717,13 +717,14 @@ END GROUP
  *(.bss)
  *(.bss*)
  .bss.i.2196    0x00800234        0x2 main.o
- .bss.flag_ub   0x00800236        0x1 main.o
-                0x00800236                flag_ub
+ .bss.flag_UART
+                0x00800236        0x1 main.o
+                0x00800236                flag_UART
  .bss.buffer    0x00800237        0x8 main.o
                 0x00800237                buffer
  *(COMMON)
  COMMON         0x0080023f        0x4 main.o
-                0x0080023f                val1
+                0x0080023f                ADC_val
                 0x00800243                PROVIDE (__bss_end, .)
                 0x00001330                __data_load_start = LOADADDR (.data)
                 0x00001364                __data_load_end = (__data_load_start + SIZEOF (.data))
@@ -863,20 +864,20 @@ END GROUP
  .debug_frame   0x00000224      0x2f0 ssd1306.o
  .debug_frame   0x00000514       0x8c UART/UART_MODULE.o
 
-.debug_str      0x00000000      0xa1d
+.debug_str      0x00000000      0xa27
  *(.debug_str)
  .debug_str     0x00000000      0x3e6 C:/Program Files (x86)/Atmel/Studio/7.0/Packs/atmel/ATmega_DFP/1.6.364/gcc/dev/atmega2560/avr6/crtatmega2560.o
  .debug_str     0x000003e6      0x180 ADC/ADC_MODULE.o
                                 0x1b9 (size before relaxing)
  .debug_str     0x00000566      0x12c I2C.o
                                 0x258 (size before relaxing)
- .debug_str     0x00000692      0x15f main.o
-                                0x30b (size before relaxing)
- .debug_str     0x000007f1       0x4c PWM/PWM_Module.o
+ .debug_str     0x00000692      0x169 main.o
+                                0x310 (size before relaxing)
+ .debug_str     0x000007fb       0x4c PWM/PWM_Module.o
                                 0x1e3 (size before relaxing)
- .debug_str     0x0000083d      0x1a2 ssd1306.o
+ .debug_str     0x00000847      0x1a2 ssd1306.o
                                 0x3ae (size before relaxing)
- .debug_str     0x000009df       0x3e UART/UART_MODULE.o
+ .debug_str     0x000009e9       0x3e UART/UART_MODULE.o
                                 0x1cf (size before relaxing)
 
 .debug_loc      0x00000000     0x13de

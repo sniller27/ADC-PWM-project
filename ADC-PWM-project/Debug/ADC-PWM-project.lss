@@ -23,11 +23,11 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   CONTENTS, READONLY, DEBUGGING
   9 .debug_frame  000005a0  00000000  00000000  00006134  2**2
                   CONTENTS, READONLY, DEBUGGING
- 10 .debug_str    00000a1d  00000000  00000000  000066d4  2**0
+ 10 .debug_str    00000a27  00000000  00000000  000066d4  2**0
                   CONTENTS, READONLY, DEBUGGING
- 11 .debug_loc    000013de  00000000  00000000  000070f1  2**0
+ 11 .debug_loc    000013de  00000000  00000000  000070fb  2**0
                   CONTENTS, READONLY, DEBUGGING
- 12 .debug_ranges 00000220  00000000  00000000  000084cf  2**0
+ 12 .debug_ranges 00000220  00000000  00000000  000084d9  2**0
                   CONTENTS, READONLY, DEBUGGING
 
 Disassembly of section .text:
@@ -760,8 +760,8 @@ ISR(ADC_vect)
      54a:	bf 93       	push	r27
      54c:	ef 93       	push	r30
      54e:	ff 93       	push	r31
-	// return 10 bit sampleværdi (henter digitale værdi fra ADC)
-	val1 = ADCL+(ADCH<<8);
+	// return 10 bit sampleværdi
+	ADC_val = ADCL+(ADCH<<8); // henter digitale værdi fra ADC i registre ADCL og ADCH 
      550:	80 91 78 00 	lds	r24, 0x0078	; 0x800078 <__TEXT_REGION_LENGTH__+0x7c0078>
      554:	60 91 79 00 	lds	r22, 0x0079	; 0x800079 <__TEXT_REGION_LENGTH__+0x7c0079>
      558:	70 e0       	ldi	r23, 0x00	; 0
@@ -774,10 +774,10 @@ ISR(ADC_vect)
      566:	88 0b       	sbc	r24, r24
      568:	99 0b       	sbc	r25, r25
      56a:	ef d2       	rcall	.+1502   	; 0xb4a <__floatsisf>
-     56c:	60 93 3f 02 	sts	0x023F, r22	; 0x80023f <val1>
-     570:	70 93 40 02 	sts	0x0240, r23	; 0x800240 <val1+0x1>
-     574:	80 93 41 02 	sts	0x0241, r24	; 0x800241 <val1+0x2>
-     578:	90 93 42 02 	sts	0x0242, r25	; 0x800242 <val1+0x3>
+     56c:	60 93 3f 02 	sts	0x023F, r22	; 0x80023f <ADC_val>
+     570:	70 93 40 02 	sts	0x0240, r23	; 0x800240 <ADC_val+0x1>
+     574:	80 93 41 02 	sts	0x0241, r24	; 0x800241 <ADC_val+0x2>
+     578:	90 93 42 02 	sts	0x0242, r25	; 0x800242 <ADC_val+0x3>
 }
      57c:	ff 91       	pop	r31
      57e:	ef 91       	pop	r30
@@ -819,7 +819,7 @@ ISR(USART0_RX_vect){
      5bc:	ff 93       	push	r31
 
 	static int i=0;
-	buffer[i++]=UDR0; // gemmer UART data i buffer-variabel
+	buffer[i++]=UDR0; // gemmer UART data i 'buffer'-variabel
      5be:	80 91 34 02 	lds	r24, 0x0234	; 0x800234 <__data_end>
      5c2:	90 91 35 02 	lds	r25, 0x0235	; 0x800235 <__data_end+0x1>
      5c6:	9c 01       	movw	r18, r24
@@ -837,9 +837,9 @@ ISR(USART0_RX_vect){
      5e0:	27 30       	cpi	r18, 0x07	; 7
      5e2:	31 05       	cpc	r19, r1
      5e4:	39 f4       	brne	.+14     	; 0x5f4 <__vector_25+0x52>
-		flag_ub=1;
+		flag_UART=1;
      5e6:	81 e0       	ldi	r24, 0x01	; 1
-     5e8:	80 93 36 02 	sts	0x0236, r24	; 0x800236 <flag_ub>
+     5e8:	80 93 36 02 	sts	0x0236, r24	; 0x800236 <flag_UART>
 		i=0;
      5ec:	10 92 35 02 	sts	0x0235, r1	; 0x800235 <__data_end+0x1>
      5f0:	10 92 34 02 	sts	0x0234, r1	; 0x800234 <__data_end>
@@ -876,7 +876,7 @@ ISR(TIMER1_COMPA_vect)
      61e:	8f 93       	push	r24
      620:	ef 93       	push	r30
      622:	ff 93       	push	r31
-	ADCSRA|=(1<<ADSC);
+	ADCSRA|=(1<<ADSC); // ADC conversion every time timers ISR is called
      624:	ea e7       	ldi	r30, 0x7A	; 122
      626:	f0 e0       	ldi	r31, 0x00	; 0
      628:	80 81       	ld	r24, Z
@@ -951,36 +951,35 @@ int main(void)
      688:	cd bf       	out	0x3d, r28	; 61
 	sei(); // enable global interrupt
      68a:	78 94       	sei
-	// ved auto-trigger => konfig reg b ... lyder som om vi skal bruge auto-trigger?
 	
-	init_timer1(); // init timer for ADC
+	// INITIALIZATION
+	init_timer1(); // init timer for ADC-conversion
      68c:	e0 df       	rcall	.-64     	; 0x64e <init_timer1>
-	
 	init_adc(0); // init ADC-registre
      68e:	80 e0       	ldi	r24, 0x00	; 0
      690:	90 e0       	ldi	r25, 0x00	; 0
      692:	c8 de       	rcall	.-624    	; 0x424 <init_adc>
-	
 	uart0_init(MYUBRRF); // UART0 init
      694:	87 e6       	ldi	r24, 0x67	; 103
      696:	90 e0       	ldi	r25, 0x00	; 0
-	enableReceive_Itr(); // init interrupt RX interrupt (receive interrupt)
+	enableReceive_Itr(); // init interrupt RX interrupt (receive interrupt) for UART
      698:	98 d1       	rcall	.+816    	; 0x9ca <uart0_init>
-	putsUSART0(message); // start message
+	init_phase_correct(); // enable and configure (registers) phase correct PWM
      69a:	d3 df       	rcall	.-90     	; 0x642 <enableReceive_Itr>
-     69c:	80 e0       	ldi	r24, 0x00	; 0
-     69e:	92 e0       	ldi	r25, 0x02	; 2
+     69c:	a9 d0       	rcall	.+338    	; 0x7f0 <init_phase_correct>
 	
-	init_phase_correct();
-     6a0:	ad d1       	rcall	.+858    	; 0x9fc <putsUSART0>
+	// START MESSAGE
+	putsUSART0(message); // send start message via UART (on PC-terminal)
+     69e:	80 e0       	ldi	r24, 0x00	; 0
+     6a0:	92 e0       	ldi	r25, 0x02	; 2
 	
-  _i2c_address = 0X78; // write address for i2c interface
-     6a2:	a6 d0       	rcall	.+332    	; 0x7f0 <init_phase_correct>
+	// For OLED display
+   _i2c_address = 0X78; // write address for i2c interface
+     6a2:	ac d1       	rcall	.+856    	; 0x9fc <putsUSART0>
      6a4:	88 e7       	ldi	r24, 0x78	; 120
-  
-  I2C_Init();  //initialize i2c interface to display
+   I2C_Init();  //initialize i2c interface to display
      6a6:	80 93 2f 02 	sts	0x022F, r24	; 0x80022f <_i2c_address>
-  InitializeDisplay(); //initialize  display
+   InitializeDisplay(); //initialize  display
      6aa:	e2 de       	rcall	.-572    	; 0x470 <I2C_Init>
      6ac:	b9 d0       	rcall	.+370    	; 0x820 <InitializeDisplay>
    print_fonts();  //for test and then exclude the  clear_display(); call
@@ -1006,16 +1005,16 @@ int main(void)
    char val3b[16];  
    char PWM_val1;
    int duty_val1 = 80;
-     6c0:	80 90 3f 02 	lds	r8, 0x023F	; 0x80023f <val1>
+     6c0:	80 90 3f 02 	lds	r8, 0x023F	; 0x80023f <ADC_val>
   while (1)
   {      
 	 //init_adc(0); // init ADC-registre
 	 //ADCSRA|=(1<<ADSC);
 	 
-	 	 val3 = val1;
-     6c4:	90 90 40 02 	lds	r9, 0x0240	; 0x800240 <val1+0x1>
-     6c8:	a0 90 41 02 	lds	r10, 0x0241	; 0x800241 <val1+0x2>
-     6cc:	b0 90 42 02 	lds	r11, 0x0242	; 0x800242 <val1+0x3>
+	 	 val3 = ADC_val;
+     6c4:	90 90 40 02 	lds	r9, 0x0240	; 0x800240 <ADC_val+0x1>
+     6c8:	a0 90 41 02 	lds	r10, 0x0241	; 0x800241 <ADC_val+0x2>
+     6cc:	b0 90 42 02 	lds	r11, 0x0242	; 0x800242 <ADC_val+0x3>
      6d0:	c5 01       	movw	r24, r10
      6d2:	b4 01       	movw	r22, r8
      6d4:	07 d2       	rcall	.+1038   	; 0xae4 <__fixsfsi>
@@ -1024,8 +1023,8 @@ int main(void)
      6da:	20 e0       	ldi	r18, 0x00	; 0
 	 	 
 		 // beregner ADC duty cycle med værdi fra ADC (spænding på indgang? ISR)
-		 // (top val er 2023 fordi val1 er 10-bits = 2^10 = 1023 ... 10-bits ADC!!!)
-		 ADC_DUTY_CYCLE = (val1/top_val)*100; // beregner duty cycle ud fra målte ADC spænding 'val1'
+		 // (top val er 2023 fordi ADC_val er 10-bits = 2^10 = 1023 ... 10-bits ADC!!!)
+		 ADC_DUTY_CYCLE = (ADC_val/top_val)*100; // beregner duty cycle ud fra målte ADC spænding 'ADC_val'
      6dc:	30 ec       	ldi	r19, 0xC0	; 192
      6de:	4f e7       	ldi	r20, 0x7F	; 127
      6e0:	54 e4       	ldi	r21, 0x44	; 68
@@ -1042,10 +1041,10 @@ int main(void)
      6f6:	87 2e       	mov	r8, r23
      6f8:	26 2f       	mov	r18, r22
      6fa:	37 2f       	mov	r19, r23
-     6fc:	80 91 36 02 	lds	r24, 0x0236	; 0x800236 <flag_ub>
+     6fc:	80 91 36 02 	lds	r24, 0x0236	; 0x800236 <flag_UART>
 	 	 
 	 	 // received UART values set OCRNA-limits (duty cycles fra ADC sammenlignes med de grænser sent fra PC-terminal!)
-		 if (flag_ub == 1)
+		 if (flag_UART == 1)
      700:	81 30       	cpi	r24, 0x01	; 1
      702:	81 f5       	brne	.+96     	; 0x764 <main+0xee>
      704:	e7 e3       	ldi	r30, 0x37	; 55
@@ -1102,8 +1101,8 @@ int main(void)
 			 duty_val1 = lim1;
 			 duty_val2 = lim2;
 			 
-			 flag_ub = 0;
-     760:	10 92 36 02 	sts	0x0236, r1	; 0x800236 <flag_ub>
+			 flag_UART = 0;
+     760:	10 92 36 02 	sts	0x0236, r1	; 0x800236 <flag_UART>
 		 }
 		 
 	 	 OCR_CONVERT1 = (duty_val1*256)/100; // ligning fra excel hvor OCR er isoleret
@@ -1179,7 +1178,7 @@ int main(void)
      7c8:	ef 92       	push	r14
      7ca:	d5 d2       	rcall	.+1450   	; 0xd76 <sprintf>
      7cc:	40 e0       	ldi	r20, 0x00	; 0
-	 //sprintf(val3b, "%i", val1);
+	 //sprintf(val3b, "%i", ADC_val);
  
 	 sendStrXY(val3a,0,0); //line 0  -print the line of text
      7ce:	50 e0       	ldi	r21, 0x00	; 0
